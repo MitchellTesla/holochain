@@ -58,7 +58,7 @@ impl SignalBroadcaster {
         self.senders
             .iter_mut()
             .map(|tx| tx.send(sig.clone()))
-            .collect::<Result<Vec<_>, broadcast::SendError<Signal>>>()
+            .collect::<Result<Vec<_>, broadcast::error::SendError<Signal>>>()
             .map_err(InterfaceError::SignalSend)?;
         Ok(())
     }
@@ -92,7 +92,7 @@ impl SignalBroadcaster {
         use tokio_stream::StreamExt;
         let mut streams = tokio_stream::StreamMap::new();
         for (i, rx) in self.subscribe_separately().into_iter().enumerate() {
-            streams.insert(i, rx);
+            streams.insert(i, tokio_stream::wrappers::BroadcastStream::new(rx));
         }
         streams.map(|(_, signal)| signal.expect("Couldn't receive a signal"))
     }

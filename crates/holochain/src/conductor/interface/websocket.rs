@@ -169,11 +169,12 @@ async fn recv_incoming_msgs_and_outgoing_signals<A: InterfaceApi>(
         tokio::select! {
             // If we receive a Signal broadcasted from a Cell, push it out
             // across the interface
-            signal = rx_from_cell.next() => {
-                if let Some(signal) = signal {
+            signal = rx_from_cell.recv() => {
+                if let Ok(signal) = signal {
                     trace!(msg = "Sending signal!", ?signal);
                     let bytes = SerializedBytes::try_from(
-                        signal.map_err(InterfaceError::SignalReceive)?,
+                        signal
+                        // .map_err(InterfaceError::SignalReceive)?,
                     )?;
                     tx_to_iface.signal(bytes).await?;
                 } else {

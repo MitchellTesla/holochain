@@ -137,7 +137,7 @@ mod test {
     #[tokio::test]
     async fn spawn_and_handle_dying_task() -> Result<()> {
         observability::test_run().ok();
-        let (mut send_task_handle, main_task) = spawn_task_manager();
+        let (send_task_handle, main_task) = spawn_task_manager();
         let handle = tokio::spawn(async {
             Err(ConductorError::Todo("This task gotta die".to_string()).into())
         });
