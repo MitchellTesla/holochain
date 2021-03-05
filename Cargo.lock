@@ -2426,6 +2426,7 @@ dependencies = [
  "libmdns",
  "mdns",
  "tokio 1.2.0",
+ "tokio-stream",
 ]
 
 [[package]]

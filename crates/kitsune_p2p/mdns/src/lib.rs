@@ -7,7 +7,7 @@
 use err_derive::Error;
 use mdns::RecordKind;
 use std::time::Duration;
-use tokio::stream::{Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
