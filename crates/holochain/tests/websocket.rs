@@ -34,7 +34,7 @@ use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::process::Child;
 use tokio::process::Command;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 use tracing::*;
 use url2::prelude::*;
 

@@ -99,7 +99,7 @@ mod tests {
         harness.ghost_actor_shutdown().await?;
 
         let mut recv_count = 0_usize;
-        while let Some(evt) = tokio::stream::StreamExt::next(&mut rcv).await {
+        while let Some(evt) = tokio_stream::StreamExt::next(&mut rcv).await {
             if let test_util::HarnessEventType::Notify { payload, .. } = &evt.ty {
                 assert_eq!(&**payload, "test-broadcast");
                 recv_count += 1;
@@ -125,7 +125,7 @@ mod tests {
 
         let mut agent_info_signed = None;
 
-        use tokio::stream::StreamExt;
+        use tokio_stream::StreamExt;
         while let Some(item) = recv.next().await {
             if let HarnessEventType::StoreAgentInfo { agent, .. } = item.ty {
                 agent_info_signed = Some((agent,));
@@ -222,7 +222,7 @@ mod tests {
         harness.ghost_actor_shutdown().await?;
 
         let mut recv_count = 0_usize;
-        while let Some(evt) = tokio::stream::StreamExt::next(&mut rcv).await {
+        while let Some(evt) = tokio_stream::StreamExt::next(&mut rcv).await {
             if &**evt.nick != "DIRECT" {
                 continue;
             }

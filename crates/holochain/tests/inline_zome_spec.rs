@@ -16,7 +16,7 @@ use holochain::{
 use holochain::{core::SourceChainError, test_utils::display_agent_infos};
 use holochain_types::{dna::zome::inline_zome::InlineZome, signal::Signal};
 use holochain_zome_types::element::ElementEntry;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 #[derive(
     Debug,

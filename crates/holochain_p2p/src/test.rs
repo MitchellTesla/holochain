@@ -186,7 +186,7 @@ mod tests {
         .unwrap();
 
         let r_task = tokio::task::spawn(async move {
-            use tokio::stream::StreamExt;
+            use tokio_stream::StreamExt;
             while let Some(evt) = evt.next().await {
                 use crate::types::event::HolochainP2pEvent::*;
                 match evt {
@@ -243,7 +243,7 @@ mod tests {
         .unwrap();
 
         let r_task = tokio::task::spawn(async move {
-            use tokio::stream::StreamExt;
+            use tokio_stream::StreamExt;
             while let Some(evt) = evt.next().await {
                 use crate::types::event::HolochainP2pEvent::*;
                 match evt {
@@ -296,7 +296,7 @@ mod tests {
 
         let recv_count_clone = recv_count.clone();
         let r_task = tokio::task::spawn(async move {
-            use tokio::stream::StreamExt;
+            use tokio_stream::StreamExt;
             while let Some(evt) = evt.next().await {
                 use crate::types::event::HolochainP2pEvent::*;
                 match evt {
@@ -379,7 +379,7 @@ mod tests {
 
         let mut respond_queue = vec![test_1.clone(), test_2.clone()];
         let r_task = tokio::task::spawn(async move {
-            use tokio::stream::StreamExt;
+            use tokio_stream::StreamExt;
             while let Some(evt) = evt.next().await {
                 use crate::types::event::HolochainP2pEvent::*;
                 match evt {
@@ -443,7 +443,7 @@ mod tests {
 
         let test_1_clone = test_1.clone();
         let r_task = tokio::task::spawn(async move {
-            use tokio::stream::StreamExt;
+            use tokio_stream::StreamExt;
             while let Some(evt) = evt.next().await {
                 let test_1_clone = test_1_clone.clone();
                 use crate::types::event::HolochainP2pEvent::*;

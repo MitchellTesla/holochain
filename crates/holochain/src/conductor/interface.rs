@@ -88,9 +88,9 @@ impl SignalBroadcaster {
     /// Get a single merged stream of all Signals from all broadcasters
     // NB: this could become more useful by giving identifiers to interfaces
     //     and returning tuples with keys instead of plain Signals
-    pub fn subscribe_merged(&self) -> impl tokio::stream::Stream<Item = Signal> {
-        use tokio::stream::StreamExt;
-        let mut streams = tokio::stream::StreamMap::new();
+    pub fn subscribe_merged(&self) -> impl tokio_stream::Stream<Item = Signal> {
+        use tokio_stream::StreamExt;
+        let mut streams = tokio_stream::StreamMap::new();
         for (i, rx) in self.subscribe_separately().into_iter().enumerate() {
             streams.insert(i, rx);
         }

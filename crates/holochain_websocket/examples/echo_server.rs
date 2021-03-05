@@ -1,7 +1,7 @@
 use holochain_serialized_bytes::prelude::*;
 use holochain_websocket::*;
 use std::convert::TryInto;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 use url2::prelude::*;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, SerializedBytes)]

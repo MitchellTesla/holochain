@@ -13,10 +13,10 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
-use tokio::stream::StreamExt;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use tokio_stream::StreamExt;
 use tracing::*;
 
 const CHANNEL_SIZE: usize = 1000;

@@ -21,8 +21,8 @@ use std::convert::TryFrom;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tokio::stream::StreamExt;
 use tokio::sync::broadcast;
+use tokio_stream::StreamExt;
 use tracing::*;
 use url2::url2;
 

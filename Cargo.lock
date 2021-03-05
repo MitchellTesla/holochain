@@ -341,12 +341,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
-
-[[package]]
-name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
@@ -1608,7 +1602,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 name = "holo_hash"
 version = "0.0.2-alpha.1"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "blake2b_simd",
  "derive_more",
  "fixt",
@@ -1628,7 +1622,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "async-trait",
- "base64 0.13.0",
+ "base64",
  "byteorder",
  "cfg-if 0.1.10",
  "chrono",
@@ -1685,6 +1679,7 @@ dependencies = [
  "test-case",
  "thiserror",
  "tokio 1.2.0",
+ "tokio-stream",
  "tokio_safe_block_on",
  "toml",
  "tracing",
@@ -1884,6 +1879,7 @@ dependencies = [
  "serde_bytes",
  "thiserror",
  "tokio 1.2.0",
+ "tokio-stream",
  "tokio_safe_block_on",
 ]
 
@@ -1963,7 +1959,7 @@ dependencies = [
  "async-trait",
  "automap",
  "backtrace",
- "base64 0.13.0",
+ "base64",
  "cfg-if 0.1.10",
  "chrono",
  "derive_builder",
@@ -2419,7 +2415,7 @@ name = "kitsune_mdns"
 version = "0.0.1"
 dependencies = [
  "async-stream",
- "base64 0.13.0",
+ "base64",
  "err-derive",
  "futures-core",
  "futures-util",
@@ -2451,6 +2447,7 @@ dependencies = [
  "shrinkwraprs",
  "thiserror",
  "tokio 1.2.0",
+ "tokio-stream",
  "tracing-subscriber",
  "url2",
 ]
@@ -2459,7 +2456,7 @@ dependencies = [
 name = "kitsune_p2p_proxy"
 version = "0.0.1"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "blake2b_simd",
  "derive_more",
  "futures",
@@ -2469,7 +2466,7 @@ dependencies = [
  "nanoid",
  "observability",
  "rmp-serde",
- "rustls 0.19.0",
+ "rustls",
  "serde",
  "serde_bytes",
  "structopt",
@@ -2490,7 +2487,7 @@ dependencies = [
  "once_cell",
  "quinn",
  "rcgen",
- "rustls 0.17.0",
+ "rustls",
  "serde",
  "tokio 1.2.0",
  "webpki",
@@ -2507,6 +2504,7 @@ dependencies = [
  "observability",
  "once_cell",
  "paste 1.0.3",
+ "quinn-proto",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -3288,7 +3286,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd56cbd21fea48d0c440b41cd69c589faacade08c992d9a54e471b79d0fd13eb"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "once_cell",
  "regex",
 ]
@@ -3586,7 +3584,7 @@ dependencies = [
  "libc",
  "mio 0.7.9",
  "quinn-proto",
- "rustls 0.19.0",
+ "rustls",
  "socket2",
  "thiserror",
  "tokio 1.2.0",
@@ -3604,7 +3602,7 @@ dependencies = [
  "ct-logs",
  "rand 0.8.3",
  "ring",
- "rustls 0.19.0",
+ "rustls",
  "rustls-native-certs",
  "slab",
  "thiserror",
@@ -3958,7 +3956,7 @@ version = "0.10.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0718f81a8e14c4dbb3b34cf23dc6aaf9ab8a0dfec160c534b3dbca1aaa21f47c"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "bytes 0.5.6",
  "encoding_rs",
  "futures-core",
@@ -3993,7 +3991,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0460542b551950620a3648c6aa23318ac6b3cd779114bd873209e6e8b5eb1c34"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "bytes 1.0.1",
  "encoding_rs",
  "futures-core",
@@ -4091,7 +4089,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b18820d944b33caa75a71378964ac46f58517c92b6ae5f762636247c09e78fb"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
@@ -4114,24 +4112,11 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0d4a31f5d68413404705d6982529b0e11a9aacd4839d1d6222ee3b8cb4015e1"
-dependencies = [
- "base64 0.11.0",
- "log",
- "ring",
- "sct",
- "webpki",
-]
-
-[[package]]
-name = "rustls"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "064fd21ff87c6e87ed4506e68beb42459caa4a0e2eb144932e6776768556980b"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "log",
  "ring",
  "sct",
@@ -4145,7 +4130,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a07b7c1885bd8ed3831c289b7870b13ef46fe0e856d288c30d9cc17d75a2092"
 dependencies = [
  "openssl-probe",
- "rustls 0.19.0",
+ "rustls",
  "schannel",
  "security-framework",
 ]
@@ -5027,7 +5012,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ada8297e8d70872fa9a551d93250a9f407beb9f37ef86494eb20012a2ff7c24"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "byteorder",
  "bytes 1.0.1",
  "http",

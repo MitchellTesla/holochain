@@ -24,7 +24,7 @@
 //! use holochain_websocket::*;
 //!
 //! use std::convert::TryInto;
-//! use tokio::stream::StreamExt;
+//! use tokio_stream::StreamExt;
 //! use url2::prelude::*;
 //!
 //! #[derive(serde::Serialize, serde::Deserialize, SerializedBytes, Debug)]

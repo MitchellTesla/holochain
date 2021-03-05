@@ -488,7 +488,7 @@ async fn run_fixt_network(
     // Return fixt store data to gets
     let handle = tokio::task::spawn({
         async move {
-            use tokio::stream::StreamExt;
+            use tokio_stream::StreamExt;
             let mut killed = killed.into_stream();
             while let Either::Right((Some(evt), _)) =
                 futures::future::select(killed.next(), recv.next()).await

@@ -14,6 +14,10 @@ pub enum TransportError {
     #[error(transparent)]
     GhostError(#[from] ghost_actor::GhostError),
 
+    /// QuinnConfigError.
+    #[error(transparent)]
+    QuinnConfigError(#[from] quinn_proto::ConfigError),
+
     /// Unspecified error.
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),

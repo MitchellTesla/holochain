@@ -200,7 +200,7 @@ where
     .unwrap();
     let respond_task = tokio::task::spawn(async move {
         use futures::future::FutureExt;
-        use tokio::stream::StreamExt;
+        use tokio_stream::StreamExt;
         while let Some(evt) = recv.next().await {
             if let Some((filter, tx)) = &mut events {
                 if filter(&evt) {
