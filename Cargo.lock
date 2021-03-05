@@ -2512,6 +2512,7 @@ dependencies = [
  "sysinfo",
  "thiserror",
  "tokio 1.2.0",
+ "tokio-stream",
  "tracing-subscriber",
  "url2",
 ]
@@ -4827,6 +4828,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite 0.2.5",
  "tokio 1.2.0",
+ "tokio-util 0.6.3",
 ]
 
 [[package]]

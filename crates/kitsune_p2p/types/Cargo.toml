@@ -24,6 +24,7 @@ serde_json = { version = "1", features = [ "preserve_order" ] }
 sysinfo = "0.15.9"
 thiserror = "1.0.22"
 tokio = { version = "1.2", features = [ "full" ] }
+tokio-stream = { version = "0.1", features = [ "sync", "net" ] }
 url2 = "0.0.6"
 
 [dev-dependencies]
