@@ -73,7 +73,7 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_roundtrip() {
         let tmpdir = tempdir::TempDir::new("hc-bundle-test").unwrap();
         let dir = tmpdir.path().join("test-dna");
@@ -119,11 +119,9 @@ zomes:
         // Unpack without forcing, which will fail
         matches::assert_matches!(
             unpack::<DnaManifest>("dna", &bundle_path, None, false).await,
-            Err(
-                HcBundleError::MrBundleError(
-                    MrBundleError::UnpackingError(UnpackingError::DirectoryExists(_)),
-                ),
-            )
+            Err(HcBundleError::MrBundleError(MrBundleError::UnpackingError(
+                UnpackingError::DirectoryExists(_)
+            ),),)
         );
         // Now unpack with forcing to overwrite original directory
         unpack::<DnaManifest>("dna", &bundle_path, None, true)

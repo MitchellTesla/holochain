@@ -122,7 +122,7 @@ pub mod tests {
         source_chain.genesis(dna_hash, agent_pubkey, None).await
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn genesis_initializes_source_chain() -> Result<(), anyhow::Error> {
         observability::test_run()?;
         let test_env = test_cell_env();
@@ -159,7 +159,11 @@ pub mod tests {
 
             assert_matches!(
                 headers.as_slice(),
-                [Header::Create(_), Header::AgentValidationPkg(_), Header::Dna(_)]
+                [
+                    Header::Create(_),
+                    Header::AgentValidationPkg(_),
+                    Header::Dna(_)
+                ]
             );
         }
 

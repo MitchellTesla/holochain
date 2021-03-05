@@ -67,7 +67,7 @@ fn conductors_call_remote(num_conductors: usize) {
         }
 
         // Let the remote messages be dropped
-        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         let mut envs = Vec::with_capacity(handles.len());
         for h in &handles {
@@ -299,7 +299,7 @@ async fn conductors_gossip_inner(
 
     // for _ in 0..600 {
     //     check_peers(envs.clone());
-    //     tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+    //     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     // }
 
     let all_handles = handles

@@ -155,7 +155,7 @@ mod test {
         );
         // Check that the main task doesn't close straight away
         let main_handle = tokio::spawn(main_task);
-        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         // Now send the handle
         if let Err(_) = send_task_handle.send(handle).await {

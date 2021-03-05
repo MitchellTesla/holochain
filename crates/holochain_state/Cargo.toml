@@ -28,7 +28,7 @@ mockall = "0.8"
 shrinkwraprs = "0.3.0"
 serde_json = { version = "1.0.51", features = [ "preserve_order" ] }
 thiserror = "1.0.22"
-tokio = { version = "0.2.11", features = [ "full" ] }
+tokio = { version = "1.2", features = [ "full" ] }
 tokio_safe_block_on = "0.1.2"
 
 [dev-dependencies]

@@ -48,7 +48,7 @@ fn invalid_cell_zome() -> InlineZome {
 }
 
 // TODO [ B-03669 ]: make much less verbose
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "test_utils")]
 async fn multi_conductor() -> anyhow::Result<()> {
     let _g = observability::test_run().ok();
@@ -89,7 +89,7 @@ async fn multi_conductor() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "test_utils")]
 async fn invalid_cell() -> anyhow::Result<()> {
     let _g = observability::test_run().ok();

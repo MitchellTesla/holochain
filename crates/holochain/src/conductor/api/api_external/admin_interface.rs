@@ -327,7 +327,7 @@ mod test {
     use observability;
     use uuid::Uuid;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn register_list_dna_app() -> Result<()> {
         observability::test_run().ok();
         let envs = test_environments();
@@ -459,7 +459,7 @@ mod test {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn install_list_dna_app() -> Result<()> {
         observability::test_run().ok();
         let envs = test_environments();

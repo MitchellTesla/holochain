@@ -2,8 +2,8 @@ use crate::core::ribosome::CallContext;
 use crate::core::ribosome::RibosomeT;
 use holochain_keystore::AgentPubKeyExt;
 use holochain_types::prelude::*;
-use std::sync::Arc;
 use holochain_wasmer_host::prelude::WasmError;
+use std::sync::Arc;
 
 pub fn verify_signature(
     _ribosome: Arc<impl RibosomeT>,
@@ -16,7 +16,8 @@ pub fn verify_signature(
                 .key
                 .verify_signature_raw(input.as_ref(), input.as_data_ref())
                 .await
-        }).map_err(|keystore_error| WasmError::Host(keystore_error.to_string()))?,
+        })
+        .map_err(|keystore_error| WasmError::Host(keystore_error.to_string()))?,
     )
 }
 
@@ -30,7 +31,7 @@ pub mod wasm_test {
     use hdk::prelude::*;
     use holochain_wasm_test_utils::TestWasm;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn ribosome_verify_signature_raw_test() {
         let test_env = holochain_lmdb::test_utils::test_cell_env();
         let env = test_env.env();
@@ -156,7 +157,7 @@ pub mod wasm_test {
         }
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn ribosome_verify_signature_test() {
         let test_env = holochain_lmdb::test_utils::test_cell_env();
         let env = test_env.env();
@@ -169,7 +170,6 @@ pub mod wasm_test {
 
         let mut host_access = fixt!(ZomeCallHostAccess, Predictable);
         host_access.workspace = workspace_lock;
-
 
         let _nothing: () = crate::call_test_ribosome!(
             host_access,

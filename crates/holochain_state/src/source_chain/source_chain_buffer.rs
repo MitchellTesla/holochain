@@ -383,7 +383,7 @@ pub mod tests {
         )
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn source_chain_buffer_iter_back() -> SourceChainResult<()> {
         let test_env = test_cell_env();
         let arc = test_env.env();
@@ -450,7 +450,7 @@ pub mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn source_chain_buffer_dump_entries_json() -> SourceChainResult<()> {
         let test_env = test_cell_env();
         let arc = test_env.env();
@@ -491,7 +491,7 @@ pub mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_header_cas_roundtrip() {
         let test_env = test_cell_env();
         let arc = test_env.env();

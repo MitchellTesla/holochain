@@ -418,7 +418,7 @@ pub async fn wait_for_integration(
             let total_time_waited = delay * i as u32;
             tracing::debug!(?count, ?total_time_waited);
         }
-        tokio::time::delay_for(delay).await;
+        tokio::time::sleep(delay).await;
     }
 }
 
@@ -465,7 +465,7 @@ pub async fn wait_for_integration_with_others(
                 change,
             );
         }
-        tokio::time::delay_for(delay).await;
+        tokio::time::sleep(delay).await;
     }
 }
 

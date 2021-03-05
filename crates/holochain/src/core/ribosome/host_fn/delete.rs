@@ -1,9 +1,9 @@
 use crate::core::ribosome::error::RibosomeError;
 use crate::core::ribosome::CallContext;
 use crate::core::ribosome::RibosomeT;
-use holochain_cascade::error::CascadeError;
 use crate::core::workflow::call_zome_workflow::CallZomeWorkspace;
 use crate::core::workflow::integrate_dht_ops_workflow::integrate_to_authored;
+use holochain_cascade::error::CascadeError;
 use holochain_wasmer_host::prelude::WasmError;
 
 use holo_hash::EntryHash;
@@ -17,9 +17,7 @@ pub fn delete<'a>(
     call_context: Arc<CallContext>,
     input: HeaderHash,
 ) -> Result<HeaderHash, WasmError> {
-
-    let deletes_entry_address =
-        get_original_address(call_context.clone(), input.clone())?;
+    let deletes_entry_address = get_original_address(call_context.clone(), input.clone())?;
 
     let host_access = call_context.host_access();
 
@@ -32,7 +30,10 @@ pub fn delete<'a>(
             deletes_address: input,
             deletes_entry_address,
         };
-        let header_hash = source_chain.put(header_builder, None).await.map_err(|source_chain_error| WasmError::Host(source_chain_error.to_string()))?;
+        let header_hash = source_chain
+            .put(header_builder, None)
+            .await
+            .map_err(|source_chain_error| WasmError::Host(source_chain_error.to_string()))?;
         let element = source_chain
             .get_element(&header_hash)
             .map_err(|source_chain_error| WasmError::Host(source_chain_error.to_string()))?
@@ -85,19 +86,20 @@ pub(crate) fn get_original_address<'a>(
             }
             None => Err(RibosomeError::ElementDeps(address.into())),
         }
-    }).map_err(|ribosome_error| WasmError::Host(ribosome_error.to_string()))
+    })
+    .map_err(|ribosome_error| WasmError::Host(ribosome_error.to_string()))
 }
 
 #[cfg(test)]
 #[cfg(feature = "slow_tests")]
 pub mod wasm_test {
-    use hdk::prelude::*;
     use crate::core::workflow::CallZomeWorkspace;
     use crate::fixt::ZomeCallHostAccessFixturator;
-    use holochain_wasm_test_utils::TestWasm;
     use ::fixt::prelude::*;
+    use hdk::prelude::*;
+    use holochain_wasm_test_utils::TestWasm;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn ribosome_delete_entry_test<'a>() {
         observability::test_run().ok();
 
@@ -109,8 +111,7 @@ pub mod wasm_test {
             .await
             .unwrap();
 
-        let workspace_lock =
-            crate::core::workflow::CallZomeWorkspaceLock::new(workspace);
+        let workspace_lock = crate::core::workflow::CallZomeWorkspaceLock::new(workspace);
 
         let mut host_access = fixt!(ZomeCallHostAccess);
         host_access.workspace = workspace_lock.clone();

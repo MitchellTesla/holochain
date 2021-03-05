@@ -47,7 +47,7 @@ pub mod wasm_test {
     use holochain_zome_types::cell::CellId;
     use holochain_zome_types::ExternIO;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     /// we can call a fn on a remote
     async fn call_remote_test() {
         // ////////////

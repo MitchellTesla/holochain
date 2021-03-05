@@ -350,7 +350,7 @@ mod tests {
             // Wait for expected # of responses, or timeout
             tokio::select! {
                 _ = rx_complete => {}
-                _ = tokio::time::delay_for(RECV_TIMEOUT) => {
+                _ = tokio::time::sleep(RECV_TIMEOUT) => {
                     panic!("Timed out while waiting for expected responses.")
                 }
             };
@@ -431,7 +431,7 @@ mod tests {
             call_workflow(env.clone().into(), cell_network).await;
 
             // If we can wait a while without receiving any publish, we have succeeded
-            tokio::time::delay_for(Duration::from_millis(
+            tokio::time::sleep(Duration::from_millis(
                 std::cmp::min(50, std::cmp::max(2000, 10 * num_agents * num_hash)).into(),
             ))
             .await;
@@ -729,7 +729,7 @@ mod tests {
                 // Wait for expected # of responses, or timeout
                 tokio::select! {
                     _ = rx_complete => {}
-                    _ = tokio::time::delay_for(RECV_TIMEOUT) => {
+                    _ = tokio::time::sleep(RECV_TIMEOUT) => {
                         panic!("Timed out while waiting for expected responses.")
                     }
                 };

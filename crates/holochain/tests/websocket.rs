@@ -111,7 +111,7 @@ async fn check_timeout<T>(
     }
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn call_admin() {
     observability::test_run().ok();
@@ -284,7 +284,7 @@ pub async fn retry_admin_interface(
                     "Failed with {:?} to open admin interface, trying {} more times",
                     e, attempts
                 );
-                tokio::time::delay_for(delay).await;
+                tokio::time::sleep(delay).await;
             }
         }
     }
@@ -331,7 +331,7 @@ async fn register_and_install_dna(
     dna_hash
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn call_zome() {
     observability::test_run().ok();
@@ -414,7 +414,7 @@ async fn call_zome() {
     // Call zome after resart
     let mut holochain = start_holochain(config_path).await;
 
-    tokio::time::delay_for(std::time::Duration::from_millis(1000)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
     // Call Zome again on the existing app interface port
     call_foo_fn(app_port, original_dna_hash, &mut holochain).await;
@@ -423,7 +423,7 @@ async fn call_zome() {
     holochain.kill().expect("Failed to kill holochain");
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn remote_signals() -> anyhow::Result<()> {
     observability::test_run().ok();
@@ -467,7 +467,7 @@ async fn remote_signals() -> anyhow::Result<()> {
         )
         .await;
 
-    tokio::time::delay_for(std::time::Duration::from_millis(2000)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
     let signal = AppSignal::new(signal);
     for mut rx in rxs {
@@ -479,7 +479,7 @@ async fn remote_signals() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn emit_signals() {
     observability::test_run().ok();
@@ -575,7 +575,7 @@ async fn emit_signals() {
     holochain.kill().expect("Failed to kill holochain");
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 async fn conductor_admin_interface_runs_from_config() -> Result<()> {
     observability::test_run().ok();
     let tmp_dir = TempDir::new("conductor_cfg").unwrap();
@@ -603,7 +603,7 @@ async fn conductor_admin_interface_runs_from_config() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 async fn conductor_admin_interface_ends_with_shutdown() -> Result<()> {
     if let Err(e) = conductor_admin_interface_ends_with_shutdown_inner().await {
         panic!("{:#?}", e);
@@ -668,7 +668,7 @@ async fn conductor_admin_interface_ends_with_shutdown_inner() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 async fn too_many_open() {
     observability::test_run().ok();
 

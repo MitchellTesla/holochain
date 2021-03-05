@@ -174,7 +174,7 @@ mod tests {
         )
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_call_remote_workflow() {
         let (dna, a1, a2, _) = test_setup();
 
@@ -231,7 +231,7 @@ mod tests {
         r_task.await.unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_send_validation_receipt_workflow() {
         let (dna, a1, a2, _) = test_setup();
 
@@ -281,7 +281,7 @@ mod tests {
         r_task.await.unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_publish_workflow() {
         let (dna, a1, a2, a3) = test_setup();
 
@@ -337,7 +337,7 @@ mod tests {
         r_task.await.unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_get_workflow() {
         let (dna, a1, a2, _a3) = test_setup();
 
@@ -425,7 +425,7 @@ mod tests {
         r_task.await.unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_get_links_workflow() {
         let (dna, a1, a2, _) = test_setup();
 
