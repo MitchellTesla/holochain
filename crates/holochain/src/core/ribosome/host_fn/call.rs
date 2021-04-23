@@ -1,16 +1,15 @@
+use crate::core::ribosome::CallContext;
 use crate::core::ribosome::RibosomeT;
 use crate::core::ribosome::ZomeCall;
-use crate::core::ribosome::CallContext;
 use holochain_types::prelude::*;
-use std::sync::Arc;
 use holochain_wasmer_host::prelude::WasmError;
+use std::sync::Arc;
 
 pub fn call(
     _ribosome: Arc<impl RibosomeT>,
     call_context: Arc<CallContext>,
     call: Call,
 ) -> Result<ZomeCallResponse, WasmError> {
-
     // Get the conductor handle
     let host_access = call_context.host_access();
     let conductor_handle = host_access.call_zome_handle();
@@ -34,7 +33,7 @@ pub fn call(
     };
 
     // Make the call using this workspace
-    Ok(tokio_safe_block_on::tokio_safe_block_forever_on(async move {
+    Ok(tokio_helper::block_forever_on(async move {
         conductor_handle
             .call_zome(invocation, workspace)
             .await
@@ -67,7 +66,7 @@ pub mod wasm_test {
     use crate::test_utils::new_zome_call;
     use holochain_state::element_buf::ElementBuf;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn call_test() {
         observability::test_run().ok();
 
@@ -102,9 +101,7 @@ pub mod wasm_test {
                 zome_name: TestWasm::WhoAmI.into(),
                 cap: None,
                 fn_name: "who_are_they_local".into(),
-                payload: ExternIO::encode(
-                    &bob_cell_id
-                ).unwrap(),
+                payload: ExternIO::encode(&bob_cell_id).unwrap(),
                 provenance: alice_agent_id.clone(),
             })
             .await
@@ -130,7 +127,7 @@ pub mod wasm_test {
     /// When calling the same cell we need to make sure
     /// the "as at" doesn't cause the original zome call to fail
     /// when they are both writing (moving the source chain forward)
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn call_the_same_cell() {
         observability::test_run().ok();
 
@@ -162,7 +159,7 @@ pub mod wasm_test {
 
     /// test calling a different zome
     /// in a different cell.
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn bridge_call() {
         observability::test_run().ok();
 
@@ -210,7 +207,7 @@ pub mod wasm_test {
         let dna_file = DnaFile::new(
             DnaDef {
                 name: dna_name.to_string(),
-                uuid: "ba1d046d-ce29-4778-914b-47e6010d2faf".to_string(),
+                uid: "ba1d046d-ce29-4778-914b-47e6010d2faf".to_string(),
                 properties: SerializedBytes::try_from(()).unwrap(),
                 zomes: zomes.clone().into_iter().map(Into::into).collect(),
             },

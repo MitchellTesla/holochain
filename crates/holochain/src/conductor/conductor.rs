@@ -30,6 +30,7 @@ use super::manager::spawn_task_manager;
 use super::manager::ManagedTaskAdd;
 use super::manager::ManagedTaskHandle;
 use super::manager::TaskManagerRunHandle;
+use super::manager::TaskOutcome;
 use super::p2p_store;
 use super::p2p_store::all_agent_infos;
 use super::p2p_store::get_single_agent_info;
@@ -283,7 +284,7 @@ where
 
             // First, register the keepalive task, to ensure the conductor doesn't shut down
             // in the absence of other "real" tasks
-            self.manage_task(ManagedTaskAdd::dont_handle(tokio::spawn(keep_alive_task(
+            self.manage_task(ManagedTaskAdd::ignore(tokio::spawn(keep_alive_task(
                 stop_tx.subscribe(),
             ))))
             .await?;
@@ -297,7 +298,7 @@ where
                         result.unwrap_or_else(|e| {
                             error!(error = &e as &dyn std::error::Error, "Interface died")
                         });
-                        None
+                        TaskOutcome::Ignore
                     }),
                 ))
                 .await?
@@ -311,10 +312,15 @@ where
 
     pub(super) async fn add_app_interface_via_handle(
         &mut self,
-        port: u16,
+        port: either::Either<u16, AppInterfaceId>,
         handle: ConductorHandle,
     ) -> ConductorResult<u16> {
-        let interface_id: AppInterfaceId = format!("interface-{}", port).into();
+        let interface_id = match port {
+            either::Either::Left(port) => AppInterfaceId::new(port),
+            either::Either::Right(id) => id,
+        };
+        let port = interface_id.port();
+        tracing::debug!("Attaching interface {}", port);
         let app_api = RealAppInterfaceApi::new(handle, interface_id.clone());
         // This receiver is thrown away because we can produce infinite new
         // receivers from the Sender
@@ -324,7 +330,7 @@ where
             .await
             .map_err(Box::new)?;
         // TODO: RELIABILITY: Handle this task by restarting it if it fails and log the error
-        self.manage_task(ManagedTaskAdd::dont_handle(task)).await?;
+        self.manage_task(ManagedTaskAdd::ignore(task)).await?;
         let interface = AppInterfaceRuntime::Websocket { signal_tx };
 
         if self.app_interfaces.contains_key(&interface_id) {
@@ -338,7 +344,18 @@ where
             Ok(state)
         })
         .await?;
+        tracing::debug!("App interface added at port: {}", port);
         Ok(port)
+    }
+
+    pub(super) async fn list_app_interfaces(&self) -> ConductorResult<Vec<u16>> {
+        Ok(self
+            .get_state()
+            .await?
+            .app_interfaces
+            .values()
+            .map(|config| config.driver.port())
+            .collect())
     }
 
     pub(super) async fn register_dna_wasm(
@@ -379,15 +396,10 @@ where
         &mut self,
         handle: ConductorHandle,
     ) -> ConductorResult<()> {
-        for i in self.get_state().await?.app_interfaces.values() {
-            tracing::debug!("Starting up app interface: {:?}", i);
-            let port = if let InterfaceDriver::Websocket { port } = i.driver {
-                port
-            } else {
-                unreachable!()
-            };
+        for id in self.get_state().await?.app_interfaces.keys().cloned() {
+            tracing::debug!("Starting up app interface: {:?}", id);
             let _ = self
-                .add_app_interface_via_handle(port, handle.clone())
+                .add_app_interface_via_handle(either::Right(id), handle.clone())
                 .await?;
         }
         Ok(())
@@ -641,8 +653,8 @@ where
     }
 
     /// Add fully constructed cells to the cell map in the Conductor
-    pub(super) fn add_cells(&mut self, cells: Vec<(Cell, InitialQueueTriggers)>) {
-        for (cell, trigger) in cells {
+    pub(super) fn add_cells(&mut self, cells: Vec<Cell>) {
+        for cell in cells {
             let cell_id = cell.id().clone();
             tracing::info!(?cell_id, "ADD CELL");
             self.cells.insert(
@@ -652,8 +664,6 @@ where
                     _state: CellState { _active: false },
                 },
             );
-
-            trigger.initialize_workflows();
         }
     }
 
@@ -676,7 +686,7 @@ where
                         .dna_store
                         .get(parent_dna_hash)
                         .ok_or_else(|| DnaError::DnaMissing(parent_dna_hash.to_owned()))?
-                        .modify_phenotype(random_uuid(), properties)?;
+                        .modify_phenotype(random_uid(), properties)?;
                     Ok((state, dna))
                 } else {
                     Err(ConductorError::AppNotActive(installed_app_id.clone()))
@@ -1198,7 +1208,6 @@ mod builder {
             )
             .await?;
 
-            #[cfg(any(test, feature = "test_utils"))]
             let conductor = Self::update_fake_state(self.state, conductor).await?;
 
             Self::finish(conductor, self.config, p2p_evt).await

@@ -21,8 +21,8 @@ use std::convert::TryFrom;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tokio::stream::StreamExt;
 use tokio::sync::broadcast;
+use tokio_stream::StreamExt;
 use tracing::*;
 use url2::url2;
 
@@ -145,9 +145,7 @@ async fn recv_incoming_admin_msgs<A: InterfaceApi>(
 ) {
     while let Some(msg) = rx_from_iface.next().await {
         match handle_incoming_message(msg, api.clone()).await {
-            Err(e) => {
-                error!(error = &e as &dyn std::error::Error)
-            }
+            Err(e) => error!(error = &e as &dyn std::error::Error),
             Ok(()) => {}
         }
     }
@@ -169,11 +167,12 @@ async fn recv_incoming_msgs_and_outgoing_signals<A: InterfaceApi>(
         tokio::select! {
             // If we receive a Signal broadcasted from a Cell, push it out
             // across the interface
-            signal = rx_from_cell.next() => {
-                if let Some(signal) = signal {
+            signal = rx_from_cell.recv() => {
+                if let Ok(signal) = signal {
                     trace!(msg = "Sending signal!", ?signal);
                     let bytes = SerializedBytes::try_from(
-                        signal.map_err(InterfaceError::SignalReceive)?,
+                        signal
+                        // .map_err(InterfaceError::SignalReceive)?,
                     )?;
                     tx_to_iface.signal(bytes).await?;
                 } else {
@@ -251,7 +250,7 @@ pub mod test_utils {
 
         (
             envs.tempdir(),
-            RealAppInterfaceApi::new(conductor_handle, "test-interface".into()),
+            RealAppInterfaceApi::new(conductor_handle, Default::default()),
             handle,
         )
     }
@@ -351,7 +350,7 @@ pub mod test {
         conductor_handle
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn serialization_failure() {
         let (_tmpdir, conductor_handle) = setup_admin().await;
         let admin_api = RealAdminInterfaceApi::new(conductor_handle.clone());
@@ -371,7 +370,7 @@ pub mod test {
         conductor_handle.shutdown().await;
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn invalid_request() {
         observability::test_run().ok();
         let (_tmpdir, conductor_handle) = setup_admin().await;
@@ -400,14 +399,14 @@ pub mod test {
     }
 
     #[ignore = "stub"]
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn deserialization_failure() {
         // TODO: B-01440: this can't be done easily yet
         // because we can't serialize something that
         // doesn't deserialize
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn websocket_call_zome_function() {
         observability::test_run().ok();
         let uuid = Uuid::new_v4();
@@ -466,10 +465,10 @@ pub mod test {
         // the overhead of a websocket request locally is small
         let shutdown = handle.take_shutdown_handle().await.unwrap();
         handle.shutdown().await;
-        shutdown.await.unwrap();
+        shutdown.await.unwrap().unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn activate_app() {
         observability::test_run().ok();
         let agent_key = fake_agent_pubkey_1();
@@ -599,10 +598,10 @@ pub mod test {
         }
 
         conductor_handle.shutdown().await;
-        shutdown.await.unwrap();
+        shutdown.await.unwrap().unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn attach_app_interface() {
         observability::test_run().ok();
         let (_tmpdir, conductor_handle) = setup_admin().await;
@@ -619,10 +618,10 @@ pub mod test {
         let msg = (msg, respond);
         handle_incoming_message(msg, admin_api).await.unwrap();
         conductor_handle.shutdown().await;
-        shutdown.await.unwrap();
+        shutdown.await.unwrap().unwrap();
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn dump_state() {
         observability::test_run().ok();
         let uuid = Uuid::new_v4();
@@ -648,7 +647,7 @@ pub mod test {
         let conductor_handle = activate(conductor_handle).await;
         let shutdown = conductor_handle.take_shutdown_handle().await.unwrap();
         // Allow agents time to join
-        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         // Get state
         let expected = conductor_handle.dump_cell_state(&cell_id).await.unwrap();
@@ -667,14 +666,14 @@ pub mod test {
         let msg = (msg, respond);
         handle_incoming_message(msg, admin_api).await.unwrap();
         conductor_handle.shutdown().await;
-        shutdown.await.unwrap();
+        shutdown.await.unwrap().unwrap();
     }
 
-    async fn make_dna(uuid: &str, zomes: Vec<TestWasm>) -> DnaFile {
+    async fn make_dna(uid: &str, zomes: Vec<TestWasm>) -> DnaFile {
         DnaFile::new(
             DnaDef {
                 name: "conductor_test".to_string(),
-                uuid: uuid.to_string(),
+                uid: uid.to_string(),
                 properties: SerializedBytes::try_from(()).unwrap(),
                 zomes: zomes.clone().into_iter().map(Into::into).collect(),
             },
@@ -684,7 +683,7 @@ pub mod test {
         .unwrap()
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     /// Check that we can add and get agent info for a conductor
     /// across the admin websocket.
     async fn add_agent_info_via_admin() {
@@ -708,17 +707,17 @@ pub mod test {
         let p2p_store = AgentKv::new(env.clone().into()).unwrap();
 
         // - Give time for the agents to join the network.
-        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
-
-        // - Check no extra data in the store to start
-        let count = fresh_reader_test!(env, |r| p2p_store
-            .as_store_ref()
-            .iter(&r)
-            .unwrap()
-            .count()
-            .unwrap());
-
-        assert_eq!(count, 4);
+        crate::assert_eq_retry_10s!(
+            {
+                fresh_reader_test!(env, |r| p2p_store
+                    .as_store_ref()
+                    .iter(&r)
+                    .unwrap()
+                    .count()
+                    .unwrap())
+            },
+            4
+        );
 
         // - Get agents and space
         let agent_infos = AgentInfoSignedFixturator::new(Unpredictable)

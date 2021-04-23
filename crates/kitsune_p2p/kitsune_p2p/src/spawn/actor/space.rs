@@ -1,11 +1,11 @@
-use crate::types::metrics::KitsuneMetrics;
-
 use super::*;
 use ghost_actor::dependencies::tracing;
 use ghost_actor::dependencies::tracing_futures::Instrument;
-use kitsune_p2p_types::codec::Codec;
-use std::collections::HashSet;
+use kitsune_p2p_mdns::*;
+use kitsune_p2p_types::codec::{rmp_decode, rmp_encode};
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
+use std::sync::atomic::AtomicBool;
 
 /// if the user specifies None or zero (0) for race_timeout_ms
 /// (david.b) this is not currently used
@@ -26,7 +26,8 @@ ghost_actor::ghost_chan! {
 
 pub(crate) async fn spawn_space(
     space: Arc<KitsuneSpace>,
-    transport: ghost_actor::GhostSender<TransportListener>,
+    this_addr: url2::Url2,
+    ep_hnd: Tx2EpHnd<wire::Wire>,
     config: Arc<KitsuneP2pConfig>,
 ) -> KitsuneP2pResult<(
     ghost_actor::GhostSender<KitsuneP2p>,
@@ -53,7 +54,7 @@ pub(crate) async fn spawn_space(
         .create_channel::<KitsuneP2p>()
         .await?;
 
-    tokio::task::spawn(builder.spawn(Space::new(space, i_s, evt_send, transport, config)));
+    tokio::task::spawn(builder.spawn(Space::new(space, this_addr, i_s, evt_send, ep_hnd, config)));
 
     Ok((sender, evt_recv))
 }
@@ -114,9 +115,10 @@ impl gossip::GossipEventHandler for Space {
                 from_agent,
                 op_count,
             } = input;
-            let transport_tx = self.transport.clone();
+            let ep_hnd = self.ep_hnd.clone();
             let evt_sender = self.evt_sender.clone();
             let space = self.space.clone();
+            let timeout = self.config.tuning_params.implicit_timeout();
             Ok(async move {
                 // see if we have an entry for this agent in our agent_store
                 let info = match evt_sender
@@ -137,15 +139,11 @@ impl gossip::GossipEventHandler for Space {
                     since_utc_epoch_s,
                     until_utc_epoch_s,
                     op_count,
-                )
-                .encode_vec()?;
+                );
                 let info = types::agent_store::AgentInfo::try_from(&info)?;
                 let url = info.as_urls_ref().get(0).unwrap().clone();
-                let (_, mut write, read) = transport_tx.create_channel(url).await?;
-                KitsuneMetrics::count(KitsuneMetrics::FetchOpHashes, data.len());
-                write.write_and_close(data.to_vec()).await?;
-                let read = read.read_to_end().await;
-                let (_, read) = wire::Wire::decode_ref(&read)?;
+                let con_hnd = ep_hnd.get_connection(url, timeout).await?;
+                let read = con_hnd.request(&data, timeout).await?;
                 match read {
                     wire::Wire::Failure(wire::Failure { reason }) => Err(reason.into()),
                     wire::Wire::FetchOpHashesResponse(wire::FetchOpHashesResponse {
@@ -174,9 +172,10 @@ impl gossip::GossipEventHandler for Space {
                 op_hashes,
                 peer_hashes,
             } = input;
-            let transport_tx = self.transport.clone();
+            let ep_hnd = self.ep_hnd.clone();
             let evt_sender = self.evt_sender.clone();
             let space = self.space.clone();
+            let timeout = self.config.tuning_params.implicit_timeout();
             Ok(async move {
                 // see if we have an entry for this agent in our agent_store
                 let info = match evt_sender
@@ -190,15 +189,11 @@ impl gossip::GossipEventHandler for Space {
                     Some(i) => i,
                 };
                 let data =
-                    wire::Wire::fetch_op_data(space, from_agent, to_agent, op_hashes, peer_hashes)
-                        .encode_vec()?;
+                    wire::Wire::fetch_op_data(space, from_agent, to_agent, op_hashes, peer_hashes);
                 let info = types::agent_store::AgentInfo::try_from(&info)?;
                 let url = info.as_urls_ref().get(0).unwrap().clone();
-                let (_, mut write, read) = transport_tx.create_channel(url).await?;
-                KitsuneMetrics::count(KitsuneMetrics::FetchOpData, data.len());
-                write.write_and_close(data.to_vec()).await?;
-                let read = read.read_to_end().await;
-                let (_, read) = wire::Wire::decode_ref(&read)?;
+                let con_hnd = ep_hnd.get_connection(url, timeout).await?;
+                let read = con_hnd.request(&data, timeout).await?;
                 match read {
                     wire::Wire::Failure(wire::Failure { reason }) => Err(reason.into()),
                     wire::Wire::FetchOpDataResponse(wire::FetchOpDataResponse {
@@ -217,8 +212,9 @@ impl gossip::GossipEventHandler for Space {
     }
 
     fn handle_gossip_ops(&mut self, input: GossipEvt) -> gossip::GossipEventHandlerResult<()> {
+        let tuning_params = self.config.tuning_params.clone();
         if self.local_joined_agents.contains(&input.to_agent) {
-            let fut = local_gossip_ops(&self.evt_sender, self.space.clone(), input);
+            let fut = local_gossip_ops(tuning_params, &self.evt_sender, self.space.clone(), input);
             Ok(async move { fut.await }.boxed().into())
         } else {
             let GossipEvt {
@@ -227,9 +223,10 @@ impl gossip::GossipEventHandler for Space {
                 ops,
                 agents,
             } = input;
-            let transport_tx = self.transport.clone();
+            let ep_hnd = self.ep_hnd.clone();
             let evt_sender = self.evt_sender.clone();
             let space = self.space.clone();
+            let timeout = self.config.tuning_params.implicit_timeout();
             Ok(async move {
                 // see if we have an entry for this agent in our agent_store
                 let info = match evt_sender
@@ -248,15 +245,11 @@ impl gossip::GossipEventHandler for Space {
                     to_agent.clone(),
                     ops.into_iter().map(|(k, v)| (k, v.into())).collect(),
                     agents,
-                )
-                .encode_vec()?;
+                );
                 let info = types::agent_store::AgentInfo::try_from(&info)?;
                 let url = info.as_urls_ref().get(0).unwrap().clone();
-                let (_, mut write, read) = transport_tx.create_channel(url.clone()).await?;
-                KitsuneMetrics::count(KitsuneMetrics::Gossip, data.len());
-                write.write_and_close(data.to_vec()).await?;
-                let read = read.read_to_end().await;
-                let (_, read) = wire::Wire::decode_ref(&read)?;
+                let con_hnd = ep_hnd.get_connection(url.clone(), timeout).await?;
+                let read = con_hnd.request(&data, timeout).await?;
                 match read {
                     wire::Wire::Failure(wire::Failure { reason }) => Err(dbg!(reason.into())),
                     wire::Wire::GossipResp(_) => Ok(()),
@@ -344,6 +337,7 @@ pub fn local_req_op_data(
 }
 
 pub fn local_gossip_ops(
+    tuning_params: kitsune_p2p_types::config::KitsuneP2pTuningParams,
     evt_sender: &futures::channel::mpsc::Sender<KitsuneP2pEvent>,
     space: Arc<KitsuneSpace>,
     input: GossipEvt,
@@ -380,14 +374,14 @@ pub fn local_gossip_ops(
         let to_agent = &to_agent;
         let from_agent = &from_agent;
         futures::stream::iter(all)
-                .for_each_concurrent(10, |res| async move {
+                .for_each_concurrent(tuning_params.concurrent_limit_per_thread, |res| async move {
                     if let Err(e) = res.await {
                         ghost_actor::dependencies::tracing::error!(failed_to_gossip_ops = ?e, ?from_agent, ?to_agent);
                     }
                 })
                 .await;
         futures::stream::iter(all_agents)
-                .for_each_concurrent(10, |res| async move {
+                .for_each_concurrent(tuning_params.concurrent_limit_per_thread, |res| async move {
                     if let Err(e) = res.await {
                         ghost_actor::dependencies::tracing::error!(failed_to_gossip_peer_info = ?e, ?from_agent, ?to_agent);
                     }
@@ -428,17 +422,15 @@ impl SpaceInternalHandler for Space {
 
     fn handle_update_agent_info(&mut self) -> SpaceInternalHandlerResult<()> {
         let space = self.space.clone();
+        let mut mdns_handles = self.mdns_handles.clone();
+        let network_type = self.config.network_type.clone();
         let agent_list: Vec<Arc<KitsuneAgent>> = self.local_joined_agents.iter().cloned().collect();
-        let bound_url = self.transport.bound_url();
+        let bound_url = self.this_addr.clone();
         let evt_sender = self.evt_sender.clone();
         let bootstrap_service = self.config.bootstrap_service.clone();
         let expires_after = self.config.tuning_params.agent_info_expires_after_ms as u64;
         Ok(async move {
-            let bound_url = bound_url.await?;
-            let urls = bound_url
-                .query_pairs()
-                .map(|(_, sub_url)| url2::url2!("{}", sub_url))
-                .collect::<Vec<_>>();
+            let urls = vec![bound_url];
             for agent in agent_list {
                 let agent_info = crate::types::agent_store::AgentInfo::new(
                     (*space).clone(),
@@ -446,9 +438,12 @@ impl SpaceInternalHandler for Space {
                     urls.clone(),
                     crate::spawn::actor::bootstrap::now_once(None).await?,
                     expires_after,
-                );
+                )
+                .with_meta_info(crate::types::agent_store::AgentMetaInfo {
+                    dht_storage_arc_half_length: 0,
+                })?;
                 let mut data = Vec::new();
-                kitsune_p2p_types::codec::rmp_encode(&mut data, &agent_info)?;
+                rmp_encode(&mut data, &agent_info)?;
                 let sign_req = SignNetworkDataEvt {
                     space: space.clone(),
                     agent: agent.clone(),
@@ -464,14 +459,45 @@ impl SpaceInternalHandler for Space {
                 evt_sender
                     .put_agent_info_signed(PutAgentInfoSignedEvt {
                         space: space.clone(),
-                        agent,
+                        agent: agent.clone(),
                         agent_info_signed: agent_info_signed.clone(),
                     })
                     .await?;
-
-                // Push to the bootstrap as well.
-                crate::spawn::actor::bootstrap::put(bootstrap_service.clone(), agent_info_signed)
-                    .await?;
+                // Push to the network as well
+                match network_type {
+                    NetworkType::QuicMdns => {
+                        // Broadcast only valid AgentInfo
+                        if !urls.is_empty() {
+                            // Kill previous broadcast for this space + agent
+                            let key = [space.get_bytes(), agent.get_bytes()].concat();
+                            if let Some(current_handle) = mdns_handles.get(&key) {
+                                mdns_kill_thread(current_handle.to_owned());
+                            }
+                            // Broadcast by using Space as service type and Agent as service name
+                            let space_b64 =
+                                base64::encode_config(&space[..], base64::URL_SAFE_NO_PAD);
+                            let agent_b64 =
+                                base64::encode_config(&agent[..], base64::URL_SAFE_NO_PAD);
+                            //println!("(MDNS) - Broadcasting of Agent {:?} ({}) in space {:?} ({} ; {})",
+                            // agent, agent.get_bytes().len(), space, space.get_bytes().len(), space_b64.len());
+                            // Broadcast rmp encoded agent_info_signed
+                            let mut buffer = Vec::new();
+                            rmp_encode(&mut buffer, &agent_info_signed)?;
+                            tracing::trace!(?space_b64, ?agent_b64);
+                            let handle =
+                                mdns_create_broadcast_thread(space_b64, agent_b64, &buffer);
+                            // store handle in self
+                            mdns_handles.insert(key, handle);
+                        }
+                    }
+                    NetworkType::QuicBootstrap => {
+                        crate::spawn::actor::bootstrap::put(
+                            bootstrap_service.clone(),
+                            agent_info_signed,
+                        )
+                        .await?;
+                    }
+                }
             }
             Ok(())
         }
@@ -508,33 +534,86 @@ impl KitsuneP2pHandler for Space {
         let fut = self.i_s.update_agent_info();
         let i_s = self.i_s.clone();
         let evt_sender = self.evt_sender.clone();
-        let bootstrap_service = self.config.bootstrap_service.clone();
-        if let Some(bootstrap_service) = bootstrap_service {
-            tokio::task::spawn(async move {
-                const START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
-                const MAX_DELAY: std::time::Duration = std::time::Duration::from_secs(60 * 60);
-                let mut delay_len = START_DELAY;
-
-                loop {
-                    tokio::time::delay_for(delay_len).await;
-                    if delay_len <= MAX_DELAY {
-                        delay_len *= 2;
-                    }
-
-                    if let Err(e) = super::discover::add_5_or_less_non_local_agents(
-                        space.clone(),
-                        agent.clone(),
-                        i_s.clone(),
-                        evt_sender.clone(),
-                        bootstrap_service.clone(),
-                    )
-                    .await
-                    {
-                        tracing::error!(msg = "Failed to get peers from bootstrap", ?e);
-                    }
+        match self.config.network_type {
+            NetworkType::QuicMdns => {
+                // Listen to MDNS service that has that space as service type
+                let space_b64 = base64::encode_config(&space[..], base64::URL_SAFE_NO_PAD);
+                //println!("(MDNS) - Agent {:?} ({}) joined space {:?} ({} ; {})", agent, agent.get_bytes().len(), space, space.get_bytes().len(), dna_str.len());
+                if !self.mdns_listened_spaces.contains(&space_b64) {
+                    self.mdns_listened_spaces.insert(space_b64.clone());
+                    tokio::task::spawn(async move {
+                        let stream = mdns_listen(space_b64);
+                        tokio::pin!(stream);
+                        while let Some(maybe_response) = stream.next().await {
+                            match maybe_response {
+                                Ok(response) => {
+                                    tracing::trace!(msg = "Peer found via MDNS", ?response);
+                                    // Decode response
+                                    let remote_agent_vec = base64::decode_config(
+                                        &response.service_name[..],
+                                        base64::URL_SAFE_NO_PAD,
+                                    )
+                                    .expect("Agent base64 decode failed");
+                                    let remote_agent = Arc::new(KitsuneAgent(remote_agent_vec));
+                                    //println!("(MDNS) - Peer found via MDNS: {:?})", *remote_agent);
+                                    let maybe_agent_info_signed =
+                                        rmp_decode(&mut &*response.buffer);
+                                    if let Err(e) = maybe_agent_info_signed {
+                                        tracing::error!(msg = "Failed to decode MDNS peer", ?e);
+                                        continue;
+                                    }
+                                    let remote_agent_info_signed = maybe_agent_info_signed.unwrap();
+                                    //println!("(MDNS) - Found agent_info_signed: {:?})", remote_agent_info_signed);
+                                    // Add to local storage
+                                    let _result = evt_sender
+                                        .put_agent_info_signed(PutAgentInfoSignedEvt {
+                                            space: space.clone(),
+                                            agent: remote_agent,
+                                            agent_info_signed: remote_agent_info_signed,
+                                        })
+                                        .await;
+                                }
+                                Err(e) => {
+                                    tracing::error!(msg = "Failed to get peers from MDNS", ?e);
+                                }
+                            }
+                        }
+                    });
                 }
-            });
+            }
+            NetworkType::QuicBootstrap => {
+                let bootstrap_service = self.config.bootstrap_service.clone();
+                if let Some(bootstrap_service) = bootstrap_service {
+                    tokio::task::spawn(async move {
+                        const START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+                        const MAX_DELAY: std::time::Duration =
+                            std::time::Duration::from_secs(60 * 60);
+                        let mut delay_len = START_DELAY;
+
+                        loop {
+                            tokio::time::sleep(delay_len).await;
+                            if delay_len <= MAX_DELAY {
+                                delay_len *= 2;
+                            }
+
+                            // TODO - this will make redundant requests to bootstrap server if multiple local agents have joined the same space.
+                            if let Err(e) = super::discover::add_5_or_less_non_local_agents(
+                                space.clone(),
+                                agent.clone(),
+                                i_s.clone(),
+                                evt_sender.clone(),
+                                bootstrap_service.clone(),
+                            )
+                            .await
+                            {
+                                tracing::error!(msg = "Failed to get peers from bootstrap", ?e);
+                            }
+                        }
+                    });
+                }
+            }
         }
+
         Ok(async move { fut.await }.boxed().into())
     }
 
@@ -561,6 +640,7 @@ impl KitsuneP2pHandler for Space {
             None | Some(0) => self.config.tuning_params.default_rpc_single_timeout_ms as u64,
             _ => timeout_ms.unwrap(),
         };
+        let timeout = KitsuneTimeout::from_millis(timeout_ms);
 
         let discover_fut =
             discover::peer_discover(self, to_agent.clone(), from_agent.clone(), timeout_ms);
@@ -571,20 +651,14 @@ impl KitsuneP2pHandler for Space {
                     // reflect this request locally
                     evt_sender.call(space, to_agent, from_agent, payload).await
                 }
-                discover::PeerDiscoverResult::OkRemote {
-                    mut write, read, ..
-                } => {
+                discover::PeerDiscoverResult::OkRemote { con_hnd, .. } => {
                     let payload = wire::Wire::call(
                         space.clone(),
                         from_agent.clone(),
                         to_agent.clone(),
                         payload.into(),
-                    )
-                    .encode_vec()?;
-                    KitsuneMetrics::count(KitsuneMetrics::Call, payload.len());
-                    write.write_and_close(payload).await?;
-                    let res = read.read_to_end().await;
-                    let (_, res) = wire::Wire::decode_ref(&res)?;
+                    );
+                    let res = con_hnd.request(&payload, timeout).await?;
                     match res {
                         wire::Wire::Failure(wire::Failure { reason }) => Err(reason.into()),
                         wire::Wire::CallResp(wire::CallResp { data }) => Ok(data.into()),
@@ -683,39 +757,46 @@ impl KitsuneP2pHandler for Space {
 /// areas that share common transport infrastructure for communication.
 pub(crate) struct Space {
     pub(crate) space: Arc<KitsuneSpace>,
+    pub(crate) this_addr: url2::Url2,
     pub(crate) i_s: ghost_actor::GhostSender<SpaceInternal>,
     pub(crate) evt_sender: futures::channel::mpsc::Sender<KitsuneP2pEvent>,
-    pub(crate) transport: ghost_actor::GhostSender<TransportListener>,
+    pub(crate) ep_hnd: Tx2EpHnd<wire::Wire>,
     pub(crate) local_joined_agents: HashSet<Arc<KitsuneAgent>>,
     pub(crate) config: Arc<KitsuneP2pConfig>,
+    mdns_handles: HashMap<Vec<u8>, Arc<AtomicBool>>,
+    mdns_listened_spaces: HashSet<String>,
 }
 
 impl Space {
     /// space constructor
     pub fn new(
         space: Arc<KitsuneSpace>,
+        this_addr: url2::Url2,
         i_s: ghost_actor::GhostSender<SpaceInternal>,
         evt_sender: futures::channel::mpsc::Sender<KitsuneP2pEvent>,
-        transport: ghost_actor::GhostSender<TransportListener>,
+        ep_hnd: Tx2EpHnd<wire::Wire>,
         config: Arc<KitsuneP2pConfig>,
     ) -> Self {
         let i_s_c = i_s.clone();
         tokio::task::spawn(async move {
             loop {
-                tokio::time::delay_for(std::time::Duration::from_secs(5 * 60)).await;
-                if i_s_c.update_agent_info().await.is_err() {
-                    break;
+                tokio::time::sleep(std::time::Duration::from_secs(5 * 60)).await;
+                if let Err(e) = i_s_c.update_agent_info().await {
+                    tracing::error!(failed_to_update_agent_info_for_space = ?e);
                 }
             }
         });
 
         Self {
             space,
+            this_addr,
             i_s,
             evt_sender,
-            transport,
+            ep_hnd,
             local_joined_agents: HashSet::new(),
             config,
+            mdns_handles: HashMap::new(),
+            mdns_listened_spaces: HashSet::new(),
         }
     }
 
@@ -729,17 +810,25 @@ impl Space {
         let actor::RpcMulti {
             space,
             from_agent,
-            basis,
-            remote_agent_count,
-            timeout_ms,
+            //basis,
+            //remote_agent_count,
+            //timeout_ms,
             //as_race,
             //race_timeout_ms,
             payload,
             ..
         } = input;
-        let remote_agent_count = remote_agent_count.unwrap();
-        let timeout_ms = timeout_ms.unwrap();
-        let stage_1_timeout_ms = timeout_ms / 2;
+
+        // TODO - FIXME - david.b - removing the parts of this that
+        // actually make remote requests. We can get this data locally
+        // while we are still full sync after gossip, and the timeouts
+        // are not structured correctly.
+        //
+        // Better to re-write as part of sharding.
+
+        //let remote_agent_count = remote_agent_count.unwrap();
+        //let timeout_ms = timeout_ms.unwrap();
+        //let stage_1_timeout_ms = timeout_ms / 2;
 
         // as an optimization - request to all local joins
         // but don't count that toward our request total
@@ -759,6 +848,7 @@ impl Space {
             })
             .collect::<Vec<_>>();
 
+        /*
         let remote_fut = discover::message_neighborhood(
             self,
             from_agent.clone(),
@@ -781,9 +871,10 @@ impl Space {
             },
         )
         .instrument(tracing::debug_span!("message_neighborhood", payload = ?payload.iter().take(5).collect::<Vec<_>>()));
+        */
 
         Ok(async move {
-            let mut out: Vec<actor::RpcMultiResponse> = futures::future::join_all(local_all)
+            let out: Vec<actor::RpcMultiResponse> = futures::future::join_all(local_all)
                 .await
                 .into_iter()
                 .filter_map(|(r, a)| {
@@ -798,7 +889,7 @@ impl Space {
                 })
                 .collect();
 
-            out.append(&mut remote_fut.await);
+            //out.append(&mut remote_fut.await);
 
             Ok(out)
         }

@@ -210,7 +210,12 @@ mod tests {
     use lair_keystore_api::internal::sign_ed25519::sign_ed25519_keypair_new_from_entropy;
     use std::convert::TryInto;
 
-    #[tokio::test(threaded_scheduler)]
+    // TODO - FIXME - davidb
+    // I'm disabling all these tests that depend on outside systems
+    // we need local testing to prove these out in a ci environment.
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "flaky"]
     async fn test_bootstrap() {
         let keypair = sign_ed25519_keypair_new_from_entropy().await.unwrap();
         let space = fixt!(KitsuneSpace);
@@ -255,7 +260,8 @@ mod tests {
         .is_err());
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "flaky"]
     async fn test_now() {
         let local_now = std::time::SystemTime::now();
         let local_millis: u64 = local_now
@@ -287,7 +293,7 @@ mod tests {
         assert!(super::NOW_OFFSET_MILLIS.get().is_some());
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     #[ignore = "flaky"]
     // Fixturator seed: 17591570467001263546
     // thread 'spawn::actor::bootstrap::tests::test_random' panicked at 'dispatch dropped without returning error', /rustc/d3fb005a39e62501b8b0b356166e515ae24e2e54/src/libstd/macros.rs:13:23

@@ -24,21 +24,21 @@ pub fn fake_dna_wasm() -> DnaWasm {
 }
 
 /// A fixture example dna for unit testing.
-pub fn fake_dna_file(uuid: &str) -> DnaFile {
-    fake_dna_zomes(uuid, vec![("test".into(), vec![].into())])
+pub fn fake_dna_file(uid: &str) -> DnaFile {
+    fake_dna_zomes(uid, vec![("test".into(), vec![].into())])
 }
 
 /// A fixture example dna for unit testing.
-pub fn fake_dna_zomes(uuid: &str, zomes: Vec<(ZomeName, DnaWasm)>) -> DnaFile {
+pub fn fake_dna_zomes(uid: &str, zomes: Vec<(ZomeName, DnaWasm)>) -> DnaFile {
     let mut dna = DnaDef {
         name: "test".to_string(),
         properties: YamlProperties::new(serde_yaml::from_str("p: hi").unwrap())
             .try_into()
             .unwrap(),
-        uuid: uuid.to_string(),
+        uid: uid.to_string(),
         zomes: Vec::new(),
     };
-    tokio_safe_block_on::tokio_safe_block_forever_on(async move {
+    tokio_helper::block_forever_on(async move {
         let mut wasm_code = Vec::new();
         for (zome_name, wasm) in zomes {
             let wasm = crate::dna::wasm::DnaWasmHashed::from_content(wasm).await;

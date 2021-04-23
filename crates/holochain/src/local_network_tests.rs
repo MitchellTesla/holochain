@@ -38,7 +38,7 @@ fn conductors_call_remote(num_conductors: usize) {
     let f = async move {
         observability::test_run().ok();
 
-        let uuid = nanoid::nanoid!().to_string();
+        let uid = nanoid::nanoid!().to_string();
         let zomes = vec![TestWasm::Create];
         let mut network = KitsuneP2pConfig::default();
         network.transport_pool = vec![kitsune_p2p::TransportConfig::Quic {
@@ -46,7 +46,7 @@ fn conductors_call_remote(num_conductors: usize) {
             override_host: None,
             override_port: None,
         }];
-        let handles = setup(zomes, Some(network), num_conductors, uuid).await;
+        let handles = setup(zomes, Some(network), num_conductors, uid).await;
 
         init_all(&handles[..]).await;
 
@@ -67,7 +67,7 @@ fn conductors_call_remote(num_conductors: usize) {
         }
 
         // Let the remote messages be dropped
-        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         let mut envs = Vec::with_capacity(handles.len());
         for h in &handles {
@@ -79,11 +79,11 @@ fn conductors_call_remote(num_conductors: usize) {
         // Give a little longer timeout here because they must find each other to pass the test
         let results = call_each_other(&handles[..], 500).await;
         for (_, _, result) in results {
-            assert_matches!(result, Some(Ok(ZomeCallResponse::Ok(_))));
+            self::assert_matches!(result, Some(Ok(ZomeCallResponse::Ok(_))));
         }
         shutdown(handles).await;
     };
-    crate::conductor::tokio_runtime().block_on(f);
+    tokio_helper::block_forever_on(f);
 }
 
 #[test_case(2, 1, 1)]
@@ -110,7 +110,7 @@ fn conductors_local_gossip(num_committers: usize, num_conductors: usize, new_con
         network,
         true,
     );
-    crate::conductor::tokio_runtime().block_on(f);
+    tokio_helper::block_forever_on(f);
 }
 
 #[test_case(2, 1, 1)]
@@ -138,7 +138,7 @@ fn conductors_boot_gossip(num_committers: usize, num_conductors: usize, new_cond
         network,
         false,
     );
-    crate::conductor::tokio_runtime().block_on(f);
+    tokio_helper::block_forever_on(f);
 }
 
 #[test_case(2, 1, 1)]
@@ -170,7 +170,7 @@ fn conductors_local_boot_gossip(
         network,
         false,
     );
-    crate::conductor::tokio_runtime().block_on(f);
+    tokio_helper::block_forever_on(f);
 }
 
 #[test_case(2, 1, 1)]
@@ -217,7 +217,7 @@ fn conductors_remote_gossip(num_committers: usize, num_conductors: usize, new_co
         network,
         true,
     );
-    crate::conductor::tokio_runtime().block_on(f);
+    tokio_helper::block_forever_on(f);
 }
 
 #[test_case(2, 1, 1)]
@@ -256,7 +256,7 @@ fn conductors_remote_boot_gossip(
         network,
         false,
     );
-    crate::conductor::tokio_runtime().block_on(f);
+    tokio_helper::block_forever_on(f);
 }
 
 async fn conductors_gossip_inner(
@@ -267,14 +267,14 @@ async fn conductors_gossip_inner(
     share_peers: bool,
 ) {
     observability::test_run().ok();
-    let uuid = nanoid::nanoid!().to_string();
+    let uid = nanoid::nanoid!().to_string();
 
     let zomes = vec![TestWasm::Create];
     let handles = setup(
         zomes.clone(),
         Some(network.clone()),
         num_committers,
-        uuid.clone(),
+        uid.clone(),
     )
     .await;
 
@@ -284,7 +284,7 @@ async fn conductors_gossip_inner(
         zomes.clone(),
         Some(network.clone()),
         num_conductors,
-        uuid.clone(),
+        uid.clone(),
     )
     .await;
 
@@ -299,7 +299,7 @@ async fn conductors_gossip_inner(
 
     // for _ in 0..600 {
     //     check_peers(envs.clone());
-    //     tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+    //     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     // }
 
     let all_handles = handles
@@ -317,7 +317,7 @@ async fn conductors_gossip_inner(
 
     shutdown(handles).await;
 
-    let third_handles = setup(zomes.clone(), Some(network.clone()), new_conductors, uuid).await;
+    let third_handles = setup(zomes.clone(), Some(network.clone()), new_conductors, uid).await;
 
     let mut envs = Vec::with_capacity(third_handles.len() + second_handles.len());
     for h in third_handles.iter().chain(second_handles.iter()) {
@@ -449,6 +449,7 @@ async fn check_gossip(
         expected_count,
         NUM_ATTEMPTS,
         DELAY_PER_ATTEMPT.clone(),
+        None,
     )
     .await;
     for hash in posts {
@@ -491,7 +492,7 @@ impl TestHandle {
     async fn shutdown(self) {
         let shutdown = self.handle.take_shutdown_handle().await.unwrap();
         self.handle.shutdown().await;
-        shutdown.await.unwrap();
+        shutdown.await.unwrap().unwrap();
     }
 }
 
@@ -505,12 +506,12 @@ async fn setup(
     zomes: Vec<TestWasm>,
     network: Option<KitsuneP2pConfig>,
     num_conductors: usize,
-    uuid: String,
+    uid: String,
 ) -> Vec<TestHandle> {
     let dna_file = DnaFile::new(
         DnaDef {
             name: "conductor_test".to_string(),
-            uuid,
+            uid,
             properties: SerializedBytes::try_from(()).unwrap(),
             zomes: zomes.clone().into_iter().map(Into::into).collect(),
         },

@@ -41,7 +41,7 @@ pub enum AdminRequest {
     /// "Clone" a DNA (in the biological sense), thus creating a new Cell.
     ///
     /// Using the provided, already-registered DNA, create a new DNA with a unique
-    /// UUID and the specified properties, create a new Cell from this cloned DNA,
+    /// UID and the specified properties, create a new Cell from this cloned DNA,
     /// and add the Cell to the specified App.
     ///
     /// Will be responded to with an [`AdminResponse::DnaCloned`]
@@ -173,6 +173,8 @@ pub enum AdminRequest {
         /// OS choose a free port
         port: Option<u16>,
     },
+    /// List all the app interfaces currently attached with [`AttachAppInterface`].
+    ListAppInterfaces,
     /// Dump the full state of the `Cell` specified by argument `cell_id`,
     /// including its chain, as a string containing JSON.
     ///
@@ -317,6 +319,9 @@ pub enum AdminResponse {
         /// Networking port of the new `AppInterfaceApi`
         port: u16,
     },
+
+    /// The list of attached app interfaces.
+    AppInterfacesListed(Vec<u16>),
 
     /// The succesful response to an [`AdminRequest::ActivateApp`].
     ///
